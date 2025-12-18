@@ -1,4 +1,4 @@
-# Order Book Challenge
+# Exchange Order Book Simulation
 
 ## Introduction
 
@@ -187,11 +187,11 @@ By visualizing the full distribution, developers can identify performance bottle
 
 #### OrderBook Latency Distribution
 
-![OrderBook Latency Distribution](artifacts/vis/latency/OrderBook_distribution.png)
+![OrderBook Latency Distribution](artifacts/vis/latency/HighVolatility.dbnOrderBook_distribution.svg)
 
 #### FlatMapOrderBook Latency Distribution
 
-![FlatMapOrderBook Latency Distribution](artifacts/vis/latency/FlatMapOrderBook_distribution.png)
+![FlatMapOrderBook Latency Distribution](artifacts/vis/latency/HighVolatility.dbnFlatOrderBook_distribution.svg)
 
 ## JSON Generation
 
