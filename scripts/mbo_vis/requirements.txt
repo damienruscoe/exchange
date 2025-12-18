@@ -1,0 +1,4 @@
+databento
+matplotlib
+pandas
+numpy
