@@ -10,18 +10,15 @@ To get a basic understanding and run a simple benchmark:
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-repo/order_book_challenge.git
-    cd order_book_challenge/src
+    git clone https://github.com/damienruscoe/exchange.git
+    git submodule update --init --recursive
+    cd exchange
     ```
-2.  **Install Python dependencies** (for plotting and analysis):
-    ```bash
-    pip install pandas matplotlib seaborn
-    ```
-3.  **Build the project:**
+2.  **Build the project:**
     ```bash
     make all
     ```
-4.  **Run a benchmark** (you'll need a DBN file, e.g., `resources/test_data/mbo.dbn`):
+3.  **Run a benchmark** (you'll need a DBN file, e.g., `resources/test_data/mbo.dbn`):
     ```bash
     ./benchmark resources/test_data/mbo.dbn
     ```
