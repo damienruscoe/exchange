@@ -20,7 +20,8 @@ To get a basic understanding and run a simple benchmark:
     ```
 3.  **Run a benchmark** (you'll need a DBN file, e.g., `resources/test_data/mbo.dbn`):
     ```bash
-    ./benchmark resources/test_data/mbo.dbn
+    ./generate_test_data
+    ./benchmark resources/test_data/FlashCrash.dbn
     ```
     This will output latency statistics to your console.
 
