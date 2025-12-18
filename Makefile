@@ -82,6 +82,9 @@ $(BUILD_DIR)/databento_obj/%.o: $(DATABENTO_SRC_DIR)/%.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+format:
+	find src/ -iname '*.h' -o -iname '*.cpp' | xargs clang-format -i
+
 clean:
 	rm -f $(GENERATE_STATS_EXECUTABLE) $(JSON_GEN_EXECUTABLE) $(BENCHMARK_EXECUTABLE) $(TEST_EXECUTABLE) $(TEST_DATA_GEN)
 	rm -rf $(BUILD_DIR)

@@ -1,8 +1,8 @@
-#include "OrderBook.h"
 #include "FlatMapOrderBook.h"
+#include "OrderBook.h"
 #include "gtest/gtest.h"
 
-//using OrderBook_t = OrderBook;
+// using OrderBook_t = OrderBook;
 using OrderBook_t = FlatMapOrderBook;
 
 databento::MboMsg CreateMboMsg(OrderId order_id, Price price, Quantity quantity,

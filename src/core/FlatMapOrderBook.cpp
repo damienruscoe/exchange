@@ -1,144 +1,5 @@
 #include "FlatMapOrderBook.h"
 
-FlatMapOrderBook::FlatMapOrderBook() = default;
-
-int64_t FlatMapOrderBook::GetPosition() const { return position_; }
-double FlatMapOrderBook::GetBookPnl() const { return book_pnl_; }
-
-Price FlatMapOrderBook::GetBestBid() const {
-  if (bids_.empty()) {
-    return 0;
-  }
-  return bids_.front().first;
-}
-
-Price FlatMapOrderBook::GetBestAsk() const {
-  if (asks_.empty()) {
-    return 0;
-  }
-  return asks_.front().first;
-}
-
-void FlatMapOrderBook::ProcessMboMsg(const databento::MboMsg &msg) {
-  switch (msg.action) {
-  case 'A':
-    AddOrder(msg);
-    break;
-  case 'C':
-    CancelOrder(msg);
-    break;
-  case 'M':
-    ModifyOrder(msg);
-    break;
-  case 'T':
-    TradeOrder(msg);
-    if (msg.side == 'B') {
-        position_ += msg.size;
-    } else {
-        position_ -= msg.size;
-    }
-    break;
-  case 'F':
-    CancelOrder(msg);
-    if (msg.side == 'B') {
-        position_ += msg.size;
-    } else {
-        position_ -= msg.size;
-    }
-    break;
-  default:
-    break;
-  }
-  Match();
-}
-
-void FlatMapOrderBook::AddOrder(const databento::MboMsg &msg) {
-  Order *order = order_pool_.acquire();
-  order->order_id = msg.order_id;
-  order->price = msg.price;
-  order->quantity = msg.size;
-  order->side = msg.side;
-  order->next = nullptr;
-  order->prev = nullptr;
-
-  if (msg.side == 'B') {
-    auto it = bids_.find(msg.price);
-    if (it != bids_.end()) {
-      AppendOrder(it->second, order);
-    } else {
-      OrderList *new_list = list_pool_.acquire();
-      new_list->head = nullptr;
-      new_list->tail = nullptr;
-      bids_.emplace(msg.price, new_list);
-      AppendOrder(new_list, order);
-    }
-  } else {
-    auto it = asks_.find(msg.price);
-    if (it != asks_.end()) {
-      AppendOrder(it->second, order);
-    } else {
-      OrderList *new_list = list_pool_.acquire();
-      new_list->head = nullptr;
-      new_list->tail = nullptr;
-      asks_.emplace(msg.price, new_list);
-      AppendOrder(new_list, order);
-    }
-  }
-  order_map_[order->order_id] = order;
-}
-
-void FlatMapOrderBook::CancelOrder(const databento::MboMsg &msg) {
-  CancelOrderById(msg.order_id);
-}
-
-void FlatMapOrderBook::CancelOrderById(OrderId order_id) {
-  auto map_it = order_map_.find(order_id);
-  if (map_it == order_map_.end()) {
-    return;
-  }
-
-  Order *order = map_it->second;
-  RemoveOrder(order);
-  order_map_.erase(map_it);
-
-  // If the list is now empty, remove the price level
-  if (order->list->head == nullptr) {
-    if (order->side == 'B') {
-      auto it = bids_.find(order->price);
-      if (it != bids_.end()) {
-        bids_.erase(it);
-      }
-    } else {
-      auto it = asks_.find(order->price);
-      if (it != asks_.end()) {
-        asks_.erase(it);
-      }
-    }
-    list_pool_.release(order->list);
-  }
-
-  order_pool_.release(order);
-}
-
-void FlatMapOrderBook::ModifyOrder(const databento::MboMsg &msg) {
-  CancelOrderById(msg.order_id);
-  AddOrder(msg);
-}
-
-void FlatMapOrderBook::TradeOrder(const databento::MboMsg &msg) {
-  auto map_it = order_map_.find(msg.order_id);
-  if (map_it == order_map_.end()) {
-    return;
-  }
-
-  Order *order = map_it->second;
-  if (msg.size >= order->quantity) {
-    CancelOrderById(msg.order_id);
-  } else {
-    order->quantity -= msg.size;
-  }
-}
-
 namespace {
 
 size_t count(const OrderList *ol) {
@@ -169,42 +30,129 @@ size_t count_size(const OrderList *ol) {
   return count;
 }
 
+template <typename Book> Price GetBest(const Book &book) {
+  if (book.empty()) {
+    return 0;
+  }
+  return book.front().first;
+}
+
 } // namespace
 
-void FlatMapOrderBook::Snapshot(std::ostream &os) const {
-	unsigned top_count = 0;
-	std::string comma = "";
+FlatMapOrderBook::FlatMapOrderBook() = default;
 
-	for (auto bi = bids_.begin(), ai = asks_.begin();
-			bi != bids_.end() || ai != asks_.end();
-			++top_count)
-	{
-		os << comma << "    {" << '\n';
-		if (ai != asks_.end()) {
-		  OrderList* al = ai->second;
-			os << "      \"ask_ct\": " << count(al) << "," << '\n';
-			os << "      \"ask_px\": " << ai->first << "," << '\n';
-			os << "      \"ask_sz\": " << count_size(al) << "," << '\n';
-			ai = std::next(ai);
-		} else {
-			os << "      \"ask_ct\": " << 0 << "," << '\n';
-			os << "      \"ask_px\": " << 0 << "," << '\n';
-			os << "      \"ask_sz\": " << 0 << "," << '\n';
-		}
-		if (bi != bids_.end()) {
-		  OrderList* bl = bi->second;
-			os << "      \"bid_ct\": " << count(bl) << "," << '\n';
-			os << "      \"bid_px\": " << bi->first << "," << '\n';
-			os << "      \"bid_sz\": " << count_size(bl) << '\n';
-			bi = std::next(bi);
-		} else {
-			os << "      \"bid_ct\": " << 0 << "," << '\n';
-			os << "      \"bid_px\": " << 0 << "," << '\n';
-			os << "      \"bid_sz\": " << 0 << '\n';
-		}
-		os << "    }";
-		comma = ",\n";
-	}
+Price FlatMapOrderBook::GetBestBid() const { return GetBest(bids); }
+
+Price FlatMapOrderBook::GetBestAsk() const { return GetBest(asks); }
+
+void FlatMapOrderBook::ProcessMboMsg(const databento::MboMsg &msg) {
+  switch (msg.action) {
+  case 'A':
+    AddOrder(msg);
+    break;
+  case 'C':
+    CancelOrder(msg);
+    break;
+  case 'M':
+    ModifyOrder(msg);
+    break;
+  case 'T':
+    TradeOrder(msg);
+    break;
+  case 'F':
+    CancelOrder(msg);
+    break;
+  default:
+    break;
+  }
+  Match();
+}
+
+void FlatMapOrderBook::AddOrder(const databento::MboMsg &msg) {
+  Order *order = order_pool.acquire();
+  order->order_id = msg.order_id;
+  order->price = msg.price;
+  order->quantity = msg.size;
+  order->side = msg.side;
+  order->next = nullptr;
+  order->prev = nullptr;
+
+  if (msg.side == 'B') {
+    auto it = bids.find(msg.price);
+    if (it != bids.end()) {
+      AppendOrder(it->second, order);
+    } else {
+      OrderList *new_list = list_pool.acquire();
+      new_list->head = nullptr;
+      new_list->tail = nullptr;
+      bids.emplace(msg.price, new_list);
+      AppendOrder(new_list, order);
+    }
+  } else {
+    auto it = asks.find(msg.price);
+    if (it != asks.end()) {
+      AppendOrder(it->second, order);
+    } else {
+      OrderList *new_list = list_pool.acquire();
+      new_list->head = nullptr;
+      new_list->tail = nullptr;
+      asks.emplace(msg.price, new_list);
+      AppendOrder(new_list, order);
+    }
+  }
+  orders[order->order_id] = order;
+}
+
+void FlatMapOrderBook::CancelOrder(const databento::MboMsg &msg) {
+  CancelOrderById(msg.order_id);
+}
+
+void FlatMapOrderBook::CancelOrderById(OrderId order_id) {
+  auto map_it = orders.find(order_id);
+  if (map_it == orders.end()) {
+    return;
+  }
+
+  Order *order = map_it->second;
+  RemoveOrder(order);
+  orders.erase(map_it);
+
+  // If the list is now empty, remove the price level
+  if (order->list->head == nullptr) {
+    if (order->side == 'B') {
+      auto it = bids.find(order->price);
+      if (it != bids.end()) {
+        bids.erase(it);
+      }
+    } else {
+      auto it = asks.find(order->price);
+      if (it != asks.end()) {
+        asks.erase(it);
+      }
+    }
+    list_pool.release(order->list);
+  }
+
+  order_pool.release(order);
+}
+
+void FlatMapOrderBook::ModifyOrder(const databento::MboMsg &msg) {
+  CancelOrderById(msg.order_id);
+  AddOrder(msg);
+}
+
+void FlatMapOrderBook::TradeOrder(const databento::MboMsg &msg) {
+  auto map_it = orders.find(msg.order_id);
+  if (map_it == orders.end()) {
+    return;
+  }
+
+  Order *order = map_it->second;
+  if (msg.size >= order->quantity) {
+    CancelOrderById(msg.order_id);
+  } else {
+    order->quantity -= msg.size;
+  }
 }
 
 void FlatMapOrderBook::AppendOrder(OrderList *list, Order *order) {
@@ -234,9 +182,9 @@ void FlatMapOrderBook::RemoveOrder(Order *order) {
 }
 
 void FlatMapOrderBook::Match() {
-  while (!bids_.empty() && !asks_.empty()) {
-    auto best_bid_it = bids_.begin();
-    auto best_ask_it = asks_.begin();
+  while (!bids.empty() && !asks.empty()) {
+    auto best_bid_it = bids.begin();
+    auto best_ask_it = asks.begin();
 
     if (best_bid_it->first < best_ask_it->first) {
       break;
@@ -268,5 +216,39 @@ void FlatMapOrderBook::Match() {
         break;
       }
     }
+  }
+}
+
+void FlatMapOrderBook::Snapshot(std::ostream &os) const {
+  unsigned top_count = 0;
+  std::string comma = "";
+
+  for (auto bi = bids.begin(), ai = asks.begin();
+       bi != bids.end() || ai != asks.end(); ++top_count) {
+    os << comma << "    {" << '\n';
+    if (ai != asks.end()) {
+      OrderList *al = ai->second;
+      os << "      \"ask_ct\": " << count(al) << "," << '\n';
+      os << "      \"ask_px\": " << ai->first << "," << '\n';
+      os << "      \"ask_sz\": " << count_size(al) << "," << '\n';
+      ai = std::next(ai);
+    } else {
+      os << "      \"ask_ct\": " << 0 << "," << '\n';
+      os << "      \"ask_px\": " << 0 << "," << '\n';
+      os << "      \"ask_sz\": " << 0 << "," << '\n';
+    }
+    if (bi != bids.end()) {
+      OrderList *bl = bi->second;
+      os << "      \"bid_ct\": " << count(bl) << "," << '\n';
+      os << "      \"bid_px\": " << bi->first << "," << '\n';
+      os << "      \"bid_sz\": " << count_size(bl) << '\n';
+      bi = std::next(bi);
+    } else {
+      os << "      \"bid_ct\": " << 0 << "," << '\n';
+      os << "      \"bid_px\": " << 0 << "," << '\n';
+      os << "      \"bid_sz\": " << 0 << '\n';
+    }
+    os << "    }";
+    comma = ",\n";
   }
 }

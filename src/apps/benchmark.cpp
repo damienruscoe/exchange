@@ -36,25 +36,25 @@ load_mbo_msgs(const std::filesystem::path &file_path) {
 
 std::vector<databento::MboMsg> mbo_msgs_;
 
-static void BM_OrderBook_ProcessMsgLatency(benchmark::State& state) {
-    OrderBook order_book;
-    size_t i = 0;
+static void BM_OrderBook_ProcessMsgLatency(benchmark::State &state) {
+  OrderBook order_book;
+  size_t i = 0;
 
-    for (auto _ : state) {
-        order_book.ProcessMboMsg(mbo_msgs_[i]);
-        i = (i + 1) % mbo_msgs_.size();
-    }
+  for (auto _ : state) {
+    order_book.ProcessMboMsg(mbo_msgs_[i]);
+    i = (i + 1) % mbo_msgs_.size();
+  }
 }
 BENCHMARK(BM_OrderBook_ProcessMsgLatency);
 
-static void BM_FlatMapOrderBook_ProcessMsgLatency(benchmark::State& state) {
-    FlatMapOrderBook order_book;
-    size_t i = 0;
+static void BM_FlatMapOrderBook_ProcessMsgLatency(benchmark::State &state) {
+  FlatMapOrderBook order_book;
+  size_t i = 0;
 
-    for (auto _ : state) {
-        order_book.ProcessMboMsg(mbo_msgs_[i]);
-        i = (i + 1) % mbo_msgs_.size();
-    }
+  for (auto _ : state) {
+    order_book.ProcessMboMsg(mbo_msgs_[i]);
+    i = (i + 1) % mbo_msgs_.size();
+  }
 }
 BENCHMARK(BM_FlatMapOrderBook_ProcessMsgLatency);
 

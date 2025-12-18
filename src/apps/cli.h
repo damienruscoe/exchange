@@ -3,8 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace cli
-{
+namespace cli {
 
 std::vector<std::string> get_dbn_files(int argc, char **argv);
 
