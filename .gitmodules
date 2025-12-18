@@ -1,0 +1,6 @@
+[submodule "deps/benchmark"]
+	path = deps/benchmark
+	url = https://github.com/google/benchmark.git
+[submodule "deps/databento-cpp"]
+	path = deps/databento-cpp
+	url = https://github.com/databento/databento-cpp

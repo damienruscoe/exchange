@@ -1,13 +1,13 @@
 CXX = g++
-CXXFLAGS = -g -std=c++20 -I../dep/databento-cpp/include -I../dep/databento-cpp/src -I../dep/gtest/include -Isrc/core -O3 -Wall -Wno-unused-function
-GTEST_LDFLAGS = -L../dep/gtest/build/lib -lgtest -lgtest_main -pthread -lssl -lcrypto -lzstd
+CXXFLAGS = -g -std=c++20 -I./deps/databento-cpp/include -I./deps/databento-cpp/src -I./deps/gtest/include -Isrc/core -O3 -Wall -Wno-unused-function
+GTEST_LDFLAGS = -L./deps/gtest/build/lib -lgtest -lgtest_main -pthread -lssl -lcrypto -lzstd
 
 MAKEFLAGS += -j32
 
 BUILD_DIR = build
 
 # Recursively find all databento source files
-DATABENTO_SRC_DIR = ../dep/databento-cpp/src
+DATABENTO_SRC_DIR = ./deps/databento-cpp/src
 DATABENTO_SRC = $(shell find $(DATABENTO_SRC_DIR) -name '*.cpp')
 DATABENTO_OBJ = $(patsubst $(DATABENTO_SRC_DIR)/%.cpp,$(BUILD_DIR)/databento_obj/%.o,$(DATABENTO_SRC))
 
@@ -56,7 +56,7 @@ $(GENERATE_STATS_EXECUTABLE): $(GENERATE_STATS_OBJECTS) $(DATABENTO_OBJ)
 
 # Rule to build the benchmark executable
 $(BENCHMARK_EXECUTABLE): $(BENCHMARK_OBJECTS) $(DATABENTO_OBJ)
-	$(CXX) $(CXXFLAGS) $^ -o $@ -lssl -lcrypto -lzstd -L../dep/benchmark/build/lib -lbenchmark
+	$(CXX) $(CXXFLAGS) $^ -o $@ -lssl -lcrypto -lzstd -L./deps/benchmark/build/lib -lbenchmark
 
 # Rule to build the test executable
 test: $(TEST_EXECUTABLE)
